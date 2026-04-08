@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T. rex Growth Curve — Dimorphism Bias Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Code+Pro:wght@300;400;500&display=swap');
+  :root {
+    --bg:#ffffff; --surface:#f7f6f3; --border:#dddbd6;
+    --male:#c8a96e; --female:#7eb8c9; --pooled:#e85d5d;
+    --accent:#b8922a; --text:#1a1a1a; --muted:#888480;
+    --warn:#c0392b; --ok:#2475a0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Source Code Pro',monospace;font-size:13px;min-height:100vh;padding:28px 20px;}
+  header{max-width:1120px;margin:0 auto 28px;border-bottom:1px solid var(--border);padding-bottom:20px;}
+  header h1{font-family:'Playfair Display',serif;font-size:24px;color:#1a1a1a;margin-bottom:6px;}
+  header h1 em{color:var(--accent);font-style:italic;}
+  header p{color:var(--muted);font-size:11.5px;line-height:1.65;max-width:740px;}
+  .layout{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:272px 1fr;gap:20px;align-items:start;}
+  .controls{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:18px;position:sticky;top:20px;}
+  .controls h2{font-family:'Playfair Display',serif;font-size:12px;font-weight:400;color:var(--accent);letter-spacing:.18em;text-transform:uppercase;margin-bottom:16px;}
+  .sec{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;border-bottom:1px solid var(--border);padding-bottom:5px;}
+  .row{margin-bottom:11px;}
+  .row label{display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px;color:var(--text);}
+  .row label span{color:var(--accent);font-weight:500;min-width:38px;text-align:right;}
+  input[type=range]{width:100%;appearance:none;height:2px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb{appearance:none;width:11px;height:11px;border-radius:50%;background:var(--accent);cursor:pointer;}
+  .mr::-webkit-slider-thumb{background:var(--male)!important;}
+  .fr::-webkit-slider-thumb{background:var(--female)!important;}
+  .run-btn{width:100%;margin-top:18px;padding:10px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'Source Code Pro',monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;cursor:pointer;border-radius:2px;transition:all .15s;}
+  .run-btn:hover{background:rgba(232,197,110,.1);}
+  .run-btn.running{border-color:var(--muted);color:var(--muted);cursor:wait;}
+  .right{display:flex;flex-direction:column;gap:18px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:18px 18px 12px;}
+  .card h3{font-family:'Playfair Display',serif;font-size:15px;font-weight:400;color:#1a1a1a;margin-bottom:3px;}
+  .card .sub{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.55;}
+  .cwrap{position:relative;height:290px;}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:11px;color:var(--muted);}
+  .li{display:flex;align-items:center;gap:6px;}
+  .ld{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .ll{width:20px;height:2px;flex-shrink:0;}
+  .ctable{width:100%;border-collapse:collapse;font-size:12px;}
+  .ctable th{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:400;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border);}
+  .ctable th.num{text-align:right;}
+  .ctable td{padding:9px 10px;border-bottom:1px solid #e8e6e1;color:var(--text);}
+  .ctable td.num{text-align:right;font-family:'Playfair Display',serif;font-size:16px;}
+  .ctable td.label{color:var(--muted);font-size:11px;}
+  .ctable tr.male td{border-left:2px solid var(--male);}
+  .ctable tr.female td{border-left:2px solid var(--female);}
+  .ctable tr.pooled td{border-left:2px solid var(--pooled);}
+  .ctable td.bias{font-size:11px;text-align:right;}
+  .ctable td.bias.pos{color:var(--warn);}
+  .ctable td.bias.neg{color:var(--ok);}
+  .ctable td.bias.ok{color:var(--muted);}
+  .interp{background:#f0ede8;border-left:2px solid var(--border);padding:13px 15px;font-size:11.5px;line-height:1.75;color:var(--muted);border-radius:0 3px 3px 0;}
+  .interp strong{color:var(--text);}
+  .interp .w{color:var(--warn);}
+  .interp .g{color:var(--ok);}
+  .card-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
+  .card-header h3{margin-bottom:0;}
+  .exp-btn{background:transparent;border:1px solid var(--border);color:var(--muted);font-family:"Source Code Pro",monospace;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;padding:4px 9px;border-radius:2px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .exp-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .exp-btn:disabled{opacity:0.4;cursor:wait;}
+  @media(max-width:780px){.layout{grid-template-columns:1fr}.controls{position:static}.metrics{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1><em>T. rex</em> Growth Curve Estimation — Dimorphism Bias Simulator</h1>
+  <p>Generates synthetic cortical growth mark (CGM) records from two morphs with different asymptotic sizes, then fits a single pooled logistic curve using the Woodward et al. (2026) simultaneous start-age estimation approach. Quantifies whether pooling produces systematic lifespan overestimates or peak-growth-rate underestimates.</p>
+</header>
+
+<div class="layout">
+  <aside class="controls">
+    <h2>Parameters</h2>
+    <div class="sec" style="color:var(--male)">&#9794; Large morph (male)</div>
+    <div class="row"><label>Asymptotic size (mm) <span id="v-mA">525</span></label><input type="range" class="mr" id="mA" min="350" max="700" value="525" step="5"></div>
+    <div class="row"><label>Age at 90% size (yr) <span id="v-mt">21</span></label><input type="range" class="mr" id="mt" min="18" max="55" value="21" step="1"></div>
+    <div class="row"><label>N specimens <span id="v-mn">8</span></label><input type="range" class="mr" id="mn" min="2" max="14" value="8" step="1"></div>
+    <div class="row"><label>Earliest death (% of lifespan) <span id="v-mmdf">60</span>%</label><input type="range" class="mr" id="mmdf" min="0" max="90" value="60" step="5"></div>
+    <div class="sec" style="color:var(--female)">&#9792; Small morph (female)</div>
+    <div class="row"><label>Asymptotic size (mm) <span id="v-fA">420</span></label><input type="range" class="fr" id="fA" min="250" max="650" value="420" step="5"></div>
+    <div class="row"><label>Age at 90% size (yr) <span id="v-ft">19</span></label><input type="range" class="fr" id="ft" min="12" max="50" value="19" step="1"></div>
+    <div class="row"><label>N specimens <span id="v-fn">8</span></label><input type="range" class="fr" id="fn" min="2" max="14" value="8" step="1"></div>
+    <div class="row"><label>Earliest death (% of lifespan) <span id="v-fmdf">30</span>%</label><input type="range" class="fr" id="fmdf" min="0" max="90" value="30" step="5"></div>
+    <div class="sec">Shared / noise</div>
+    <div class="row"><label>Hatchling size (mm) <span id="v-c0">22</span></label><input type="range" id="c0" min="8" max="50" value="22" step="1"></div>
+    <div class="row"><label>Measurement noise &#963; <span id="v-ns">12</span></label><input type="range" id="ns" min="2" max="40" value="12" step="1"></div>
+    <div class="row"><label>Avg CGM per specimen <span id="v-cg">14</span></label><input type="range" id="cg" min="5" max="24" value="14" step="1"></div>
+    <div class="row"><label>Random seed <span id="v-sd">46</span></label><input type="range" id="sd" min="1" max="200" value="46" step="1"></div>
+    <button class="run-btn" id="runBtn" onclick="runSim()">&#9654; Run Simulation</button>
+  </aside>
+
+  <div class="right">
+    <div class="card">
+      <div class="card-header"><h3>Raw CGM Growth Series</h3><button class="exp-btn" onclick="exportChart('cRaw','cgm_raw',this)">&#x1F5D7; View Large</button></div>
+      <p class="sub">Each line = one specimen's record (circumference vs. CGM count within that bone). Absolute ages are unknown, as in a real fossil study. Large morph in amber, small morph in teal.</p>
+      <div class="cwrap"><canvas id="cRaw"></canvas></div>
+      <div class="legend">
+        <div class="li"><div class="ld" style="background:var(--male)"></div>Large morph (male)</div>
+        <div class="li"><div class="ld" style="background:var(--female)"></div>Small morph (female)</div>
+      </div>
+    </div>
+
+
+    <div class="card">
+      <div class="card-header"><h3>True Age-Aligned CGM Series</h3><button class="exp-btn" onclick="exportChart('cTrueAge','true_age_cgm',this)">&#x1F5D7; View Large</button></div>
+      <p class="sub">Each specimen's CGM series plotted at its <em>true simulated</em> absolute age. This shows the actual growth trajectories that generated the data, before any estimation bias from the pooled fitting process.</p>
+      <div class="cwrap"><canvas id="cTrueAge"></canvas></div>
+      <div class="legend">
+        <div class="li"><div class="ld" style="background:var(--male)"></div>Large morph specimens (true ages)</div>
+        <div class="li"><div class="ld" style="background:var(--female)"></div>Small morph specimens (true ages)</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Recovered vs. True Curves (Age-Aligned)</h3><button class="exp-btn" onclick="exportChart('cFit','growth_curves',this)">&#x1F5D7; View Large</button></div>
+      <p class="sub">After simultaneous start-age estimation + logistic sigmoid fit on the pooled sex-blind sample.</p>
+      <div class="cwrap"><canvas id="cFit"></canvas></div>
+      <div class="legend">
+        <div class="li"><div class="ll" style="background:var(--male)"></div>True large-morph curve</div>
+        <div class="li"><div class="ll" style="background:var(--female)"></div>True small-morph curve</div>
+        <div class="li"><div class="ll" style="background:#888480;border-top:2px dashed #888480;height:0px"></div>True average (m+f)/2</div>
+        <div class="li"><div class="ll" style="background:var(--pooled);height:3px"></div>Recovered pooled fit</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Age-Aligned Specimens + Pooled Fit</h3><button class="exp-btn" onclick="exportChart('cPooled','age_aligned_pooled',this)">&#x1F5D7; View Large</button></div>
+      <p class="sub">Each specimen's CGM series plotted at its <em>estimated</em> absolute age (after simultaneous start-age estimation). The optimizer sees exactly this scatter when fitting the red pooled curve.</p>
+      <div class="cwrap"><canvas id="cPooled"></canvas></div>
+      <div class="legend">
+        <div class="li"><div class="ld" style="background:var(--male)"></div>Large morph specimens (age-aligned)</div>
+        <div class="li"><div class="ld" style="background:var(--female)"></div>Small morph specimens (age-aligned)</div>
+        <div class="li"><div class="ll" style="background:var(--pooled);height:3px"></div>Recovered pooled fit</div>
+      </div>
+    </div>
+
+
+    <div class="card">
+      <div class="card-header"><h3>Age Estimation Accuracy</h3><button class="exp-btn" onclick="exportChart('cAgeCheck','age_accuracy',this)">&#x1F5D7; View Large</button></div>
+      <p class="sub">Each point = one specimen. X-axis = true age (known in simulation), Y-axis = estimated age (from start-age optimization). Dashed line = perfect agreement. Points above the line = overestimated ages; below = underestimated.</p>
+      <div class="cwrap"><canvas id="cAgeCheck"></canvas></div>
+      <div class="legend">
+        <div class="li"><div class="ld" style="background:var(--male)"></div>Large morph specimens</div>
+        <div class="li"><div class="ld" style="background:var(--female)"></div>Small morph specimens</div>
+        <div class="li"><div class="ll" style="background:#888888;border-top:2px dashed #888888;height:0px"></div>Perfect agreement (y=x)</div>
+      </div>
+    </div>
+
+
+    <div class="card">
+      <div class="card-header"><h3>Age Estimation Bias vs. Size</h3><button class="exp-btn" onclick="exportChart('cAgeBias','age_bias_vs_size',this)">&#x1F5D7; View Large</button></div>
+      <p class="sub">Each point = one specimen. X-axis = final circumference at death (proxy for body size), Y-axis = age estimation error in years (estimated age - true age). Shows whether larger or smaller specimens have systematically biased age estimates.</p>
+      <div class="cwrap"><canvas id="cAgeBias"></canvas></div>
+      <div class="legend">
+        <div class="li"><div class="ld" style="background:var(--male)"></div>Large morph specimens</div>
+        <div class="li"><div class="ld" style="background:var(--female)"></div>Small morph specimens</div>
+        <div class="li"><div class="ll" style="background:#888888;border-top:2px dashed #888888;height:0px"></div>Zero bias (y=0)</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><h3>Key Parameter Comparison</h3><button class="exp-btn" onclick="exportTable('comptable','parameter_comparison',this)">&#x1F5D7; View Large</button></div>
+      <p class="sub">Direct comparison of peak growth rate (mm/yr at inflection) and age to reach 95% asymptotic size across the two true curves and the recovered pooled fit. Bias = recovered minus true.</p>
+      <table class="ctable" id="comptable">
+        <thead>
+          <tr>
+            <th>Curve</th>
+            <th class="num">Asymptote<br>(mm)</th>
+            <th class="num">Peak growth rate<br>(mm circ./yr)</th>
+            <th class="num">Age at 95% size<br>(yr)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="male">
+            <td class="label">&#9794; True large morph</td>
+            <td class="num" id="t-mA">—</td>
+            <td class="num" id="t-mpgr">—</td>
+            <td class="num" id="t-mt95">—</td>
+          </tr>
+          <tr class="female">
+            <td class="label">&#9792; True small morph</td>
+            <td class="num" id="t-fA">—</td>
+            <td class="num" id="t-fpgr">—</td>
+            <td class="num" id="t-ft95">—</td>
+          </tr>
+          <tr style="border-left:2px dashed #888480;">
+            <td class="label" style="color:#888480;">&#9643; True average (m+f)/2</td>
+            <td class="num" id="t-aA">—</td>
+            <td class="num" id="t-apgr">—</td>
+            <td class="num" id="t-at95">—</td>
+          </tr>
+          <tr class="pooled">
+            <td class="label">&#9632; Recovered (pooled)</td>
+            <td class="num" id="t-rA">—</td>
+            <td class="num" id="t-rpgr">—</td>
+            <td class="num" id="t-rt95">—</td>
+          </tr>
+          <tr>
+            <td class="label" style="color:var(--muted);font-size:10px;padding-top:10px">Bias (recovered − average)</td>
+            <td class="bias" id="t-bA-a">—</td>
+            <td class="bias" id="t-bpgr-a">—</td>
+            <td class="bias" id="t-bt95-a">—</td>
+          </tr>
+          <tr>
+            <td class="label" style="color:var(--muted);font-size:10px">Bias (recovered − large morph)</td>
+            <td class="bias" id="t-bA-m">—</td>
+            <td class="bias" id="t-bpgr-m">—</td>
+            <td class="bias" id="t-bt95-m">—</td>
+          </tr>
+          <tr>
+            <td class="label" style="color:var(--muted);font-size:10px">Bias (recovered − small morph)</td>
+            <td class="bias" id="t-bA-f">—</td>
+            <td class="bias" id="t-bpgr-f">—</td>
+            <td class="bias" id="t-bt95-f">—</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div style="margin-top:20px;padding:15px;background:#f9f8f5;border:1px solid #dddbd6;border-radius:3px;">
+        <h4 style="font-family:'Playfair Display',serif;font-size:13px;color:#1a1a1a;margin:0 0 10px 0;font-weight:400;">Growth Curve Equations</h4>
+        <div style="font-family:'Courier New',monospace;font-size:10px;line-height:1.8;color:#1a1a1a;">
+          <div style="margin-bottom:8px;">
+            <strong style="color:#c8a96e;">True large morph:</strong><br>
+            <span id="eq-male" style="margin-left:10px;">—</span>
+          </div>
+          <div style="margin-bottom:8px;">
+            <strong style="color:#7eb8c9;">True small morph:</strong><br>
+            <span id="eq-female" style="margin-left:10px;">—</span>
+          </div>
+          <div style="margin-bottom:8px;">
+            <strong style="color:#888480;">True average:</strong><br>
+            <span id="eq-avg" style="margin-left:10px;">—</span>
+          </div>
+          <div>
+            <strong style="color:#e85d5d;">Recovered pooled:</strong><br>
+            <span id="eq-pooled" style="margin-left:10px;">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Interpretation</h3>
+      <div class="interp" id="interp">Click <strong>Run Simulation</strong> to generate synthetic data and fit the model.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── PRNG ──────────────────────────────────────────────────────────────────────
+function mkRand(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 2**32; };
+}
+function rNorm(rand, mu, sd) {
+  let u, v;
+  do { u = rand(); } while (!u);
+  do { v = rand(); } while (!v);
+  return mu + sd * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+// ── Growth model ──────────────────────────────────────────────────────────────
+function logistic(t, A, k, t0) {
+  return A / (1 + Math.exp(-k * (t - t0)));
+}
+// Solve logistic params from (A, c0, t90): logistic(0)=c0, logistic(t90)=0.9*A
+function solveParams(A, c0, t90) {
+  const k  = (Math.log(9) + Math.log(A / c0 - 1)) / t90;
+  const t0 = Math.log(A / c0 - 1) / k;
+  return { k, t0 };
+}
+
+// ── Nelder-Mead ───────────────────────────────────────────────────────────────
+function nelderMead(f, x0, maxIter, tol) {
+  maxIter = maxIter || 12000; tol = tol || 1e-11;
+  const n = x0.length;
+  let sx = [x0.slice()];
+  for (let i = 0; i < n; i++) {
+    const p = x0.slice();
+    p[i] += Math.abs(p[i]) > 1e-10 ? 0.15 * Math.abs(p[i]) : 0.1;
+    sx.push(p);
+  }
+  let fv = sx.map(f);
+  for (let iter = 0; iter < maxIter; iter++) {
+    const ord = fv.map((_, i) => i).sort((a, b) => fv[a] - fv[b]);
+    sx = ord.map(i => sx[i]); fv = ord.map(i => fv[i]);
+    if (fv[n] - fv[0] < tol) break;
+    // Centroid of all but worst
+    const xo = Array.from({length: n}, (_, d) =>
+      sx.slice(0, n).reduce((s, p) => s + p[d], 0) / n);
+    // Reflect
+    const xr = xo.map((v, d) => v + (v - sx[n][d]));
+    const fr = f(xr);
+    if (fr < fv[0]) {
+      // Expand
+      const xe = xo.map((v, d) => v + 2 * (xr[d] - v));
+      const fe = f(xe);
+      sx[n] = fe < fr ? xe : xr; fv[n] = Math.min(fe, fr);
+    } else if (fr < fv[n - 1]) {
+      sx[n] = xr; fv[n] = fr;
+    } else {
+      // Contract
+      const xc = xo.map((v, d) => v + 0.5 * (sx[n][d] - v));
+      const fc = f(xc);
+      if (fc < fv[n]) { sx[n] = xc; fv[n] = fc; }
+      else {
+        for (let i = 1; i <= n; i++) {
+          sx[i] = sx[0].map((v, d) => v + 0.5 * (sx[i][d] - v));
+          fv[i] = f(sx[i]);
+        }
+      }
+    }
+  }
+  return { x: sx[0], fx: fv[0] };
+}
+
+// ── Joint sigmoid fit ─────────────────────────────────────────────────────────
+// Woodward et al. 2026 Equation (4): Simultaneous optimization
+// Optimizes curve parameters (A, k, t0) and start ages together in one step
+function jointFit(specimens) {
+  const sorted = [...specimens].sort((a, b) => {
+    const ma = a.circs[Math.floor(a.circs.length / 2)];
+    const mb = b.circs[Math.floor(b.circs.length / 2)];
+    return ma - mb;
+  });
+  
+  const allC = sorted.flatMap(s => s.circs);
+  const maxC = Math.max(...allC);
+  
+  // Initialize curve parameters
+  const A0 = maxC * 1.12;
+  const k0 = 0.15;
+  const t0_0 = 12;
+  
+  // Initialize start ages by logistic inversion
+  const s0 = sorted.map(sp => {
+    const c = Math.min(sp.circs[0], A0 * 0.9999);
+    const r = A0 / c - 1;
+    if (r <= 0) return t0_0 + 5;
+    const ageAtFirstCGM = t0_0 - Math.log(r) / k0;
+    // Start age is age of first CGM minus 1 (since cgmCount[0] = 1)
+    return Math.max(0, ageAtFirstCGM - 1);
+  });
+  const minS = Math.min(...s0);
+  const normS = s0.map(v => v - minS);
+  
+  // Woodward Equation (4): Simultaneous optimization
+  // Variables: [ln(A), ln(k), t0, start_1, start_2, ..., start_{M-1}]
+  // (start_0 fixed at 0 as reference)
+  function loss(params) {
+    const A  = Math.exp(params[0]);
+    const k  = Math.exp(params[1]);
+    const t0 = params[2];
+    
+    // Parameter bounds
+    if (!isFinite(A) || !isFinite(k) || A < 30 || A > 2500 || k < 0.005 || k > 3) return 1e15;
+    
+    const starts = [0, ...params.slice(3)];
+    
+    // Constraint: all start ages >= 0 (so first CGM at age >= 1)
+    if (starts.some(s => s < 0)) return 1e15;
+    
+    // Constraint: first CGM must be at age >= 1 for all specimens
+    for (let j = 0; j < sorted.length; j++) {
+      const sp = sorted[j];
+      const firstCGMAge = sp.cgmCounts[0] + starts[j];
+      if (firstCGMAge < 1) return 1e15;
+    }
+    
+    // Compute sum of squared residuals
+    let total = 0;
+    for (let j = 0; j < sorted.length; j++) {
+      const sp = sorted[j];
+      for (let i = 0; i < sp.circs.length; i++) {
+        const t = sp.cgmCounts[i] + starts[j];
+        const pred = logistic(t, A, k, t0);
+        total += (pred - sp.circs[i]) ** 2;
+      }
+    }
+    return total;
+  }
+  
+  // Initial parameter vector: [ln(A0), ln(k0), t0_0, normalized starts for specimens 1..M-1]
+  const x0 = [Math.log(A0), Math.log(k0), t0_0, ...normS.slice(1)];
+  
+  // Run optimization
+  const res = nelderMead(loss, x0);
+  
+  return {
+    A:  Math.exp(res.x[0]),
+    k:  Math.exp(res.x[1]),
+    t0: res.x[2],
+    starts: [0, ...res.x.slice(3)],
+    sortedSpecs: sorted
+  };
+}
+
+// ── Bootstrap CI ──────────────────────────────────────────────────────────────
+function bootstrapCI(specimens, nBoot, seed) {
+  nBoot = nBoot || 200; seed = seed || 99;
+  const rand = mkRand(seed);
+  const M = specimens.length;
+  const tGrid = [];
+  for (let t = 0; t <= 65; t += 0.5) tGrid.push(t);
+  const bootCurves = [];
+  for (let b = 0; b < nBoot; b++) {
+    const sample = Array.from({length: M}, () => specimens[Math.floor(rand() * M)]);
+    try {
+      const f = jointFit(sample);
+      bootCurves.push(tGrid.map(t => logistic(t, f.A, f.k, f.t0)));
+    } catch(e) { /* skip */ }
+  }
+  const lo = tGrid.map((_, i) => {
+    const v = bootCurves.map(c => c[i]).filter(isFinite).sort((a, b) => a - b);
+    return v[Math.floor(0.025 * v.length)] ?? NaN;
+  });
+  const hi = tGrid.map((_, i) => {
+    const v = bootCurves.map(c => c[i]).filter(isFinite).sort((a, b) => a - b);
+    return v[Math.floor(0.975 * v.length)] ?? NaN;
+  });
+  return { tGrid, lo, hi };
+}
+
+// ── Specimen generation ───────────────────────────────────────────────────────
+// minDeathFrac: 0 = any age sampled uniformly; 0.7 = only oldest 30% of lifespan sampled
+function genSpecimens(rand, A, k, t0, n, noise, avgCGM, maxAge, minDeathFrac) {
+  minDeathFrac = minDeathFrac || 0;
+  const minDeath = Math.round(minDeathFrac * maxAge);
+  const specs = [];
+  for (let s = 0; s < n; s++) {
+    const nCGM = Math.max(4, Math.round(avgCGM + rNorm(rand, 0, 7)));
+    // Allow death age from max(nCGM, minDeath) to maxAge
+    const lo = Math.max(nCGM, minDeath);
+    const deathAge = lo + Math.floor(rand() * Math.max(1, maxAge - lo + 1));
+    // Start age can now be as low as 1 (first year of life)
+    const startAge = Math.max(1, deathAge - nCGM + 1);
+    const cgmCounts = [], circs = [];
+    for (let i = 0; i < nCGM; i++) {
+      cgmCounts.push(i + 1);
+      // Add noise to true value
+      const trueVal = logistic(startAge + i, A, k, t0);
+      let noisyVal = Math.max(10, trueVal + rNorm(rand, 0, noise));
+      // Enforce monotonicity: each CGM must be >= previous CGM
+      if (i > 0 && noisyVal <= circs[i - 1]) {
+        noisyVal = circs[i - 1] + 0.5; // force at least 0.5mm increment
+      }
+      circs.push(noisyVal);
+    }
+    specs.push({ cgmCounts, circs, trueStart: startAge, deathAge: deathAge });
+  }
+  return specs;
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+const CS = {};
+function killChart(id) { if (CS[id]) { CS[id].destroy(); delete CS[id]; } }
+
+function drawRaw(mSpecs, fSpecs) {
+  killChart('raw');
+  const ctx = document.getElementById('cRaw').getContext('2d');
+  const ds = [];
+  mSpecs.forEach((sp, i) => ds.push({
+    data: sp.cgmCounts.map((c, j) => ({x: c, y: sp.circs[j]})),
+    borderColor: `rgba(200,169,110,${0.4 + 0.5 * (i / Math.max(mSpecs.length - 1, 1))})`,
+    backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 1.5, tension: 0, showLine: true,
+  }));
+  fSpecs.forEach((sp, i) => ds.push({
+    data: sp.cgmCounts.map((c, j) => ({x: c, y: sp.circs[j]})),
+    borderColor: `rgba(126,184,201,${0.4 + 0.5 * (i / Math.max(fSpecs.length - 1, 1))})`,
+    backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 1.5, tension: 0, showLine: true,
+  }));
+  CS['raw'] = new Chart(ctx, {
+    type: 'scatter', data: {datasets: ds},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, devicePixelRatio: 6,
+      plugins: {legend: {display: false}, tooltip: {enabled: false}},
+      scales: {
+        x: {title: {display: true, text: 'CGM count within specimen', color: '#555555', font: {size: 11}}, grid: {color: '#e8e6e1'}, ticks: {color: '#555555'}},
+        y: {title: {display: true, text: 'Circumference (mm)', color: '#555555', font: {size: 11}}, grid: {color: '#e8e6e1'}, ticks: {color: '#555555'}},
+      },
+    },
+  });
+}
+
+
+function drawTrueAge(mSpecs, fSpecs) {
+  killChart('trueage');
+  const ctx = document.getElementById('cTrueAge').getContext('2d');
+  const ds = [];
+  
+  // Plot each male specimen at its true ages
+  mSpecs.forEach((sp, i) => {
+    const trueStart = sp.trueStart;
+    ds.push({
+      label: `Male ${i+1}`,
+      data: sp.cgmCounts.map((c, j) => ({ x: trueStart + c - 1, y: sp.circs[j] })),
+      borderColor: `rgba(200,169,110,${0.4 + 0.5 * (i / Math.max(mSpecs.length - 1, 1))})`,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      pointRadius: 1.5,
+      tension: 0,
+      showLine: true,
+    });
+  });
+  
+  // Plot each female specimen at its true ages
+  fSpecs.forEach((sp, i) => {
+    const trueStart = sp.trueStart;
+    ds.push({
+      label: `Female ${i+1}`,
+      data: sp.cgmCounts.map((c, j) => ({ x: trueStart + c - 1, y: sp.circs[j] })),
+      borderColor: `rgba(126,184,201,${0.4 + 0.5 * (i / Math.max(fSpecs.length - 1, 1))})`,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      pointRadius: 1.5,
+      tension: 0,
+      showLine: true,
+    });
+  });
+  
+  CS['trueage'] = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets: ds },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      devicePixelRatio: 6,
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'True age (yr)', color: '#555555', font: { size: 11 } },
+          grid: { color: '#e8e6e1' },
+          ticks: { color: '#555555' }
+        },
+        y: {
+          title: { display: true, text: 'Circumference (mm)', color: '#555555', font: { size: 11 } },
+          grid: { color: '#e8e6e1' },
+          ticks: { color: '#555555' }
+        },
+      },
+    },
+  });
+}
+
+function drawFit(fit, mP, fP, p) {
+  killChart('fit');
+  const ctx = document.getElementById('cFit').getContext('2d');
+  const tMax = Math.max(p.mt, p.ft) * 1.5;
+  const labels = [], recC = [], malC = [], femC = [], avgC = [];
+  for (let t = 0; t <= tMax; t += 0.4) {
+    labels.push(t.toFixed(1));
+    const m = logistic(t, p.mA, mP.k, mP.t0);
+    const f = logistic(t, p.fA, fP.k, fP.t0);
+    malC.push(m);
+    femC.push(f);
+    avgC.push((m + f) / 2);
+    recC.push(logistic(t, fit.A, fit.k, fit.t0));
+  }
+  CS['fit'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {label: 'True large morph', data: malC, borderColor: 'rgba(200,169,110,0.8)', fill: false, pointRadius: 0, borderWidth: 2, tension: 0.4},
+        {label: 'True small morph', data: femC, borderColor: 'rgba(126,184,201,0.8)', fill: false, pointRadius: 0, borderWidth: 2, tension: 0.4},
+        {label: 'True average (m+f)/2', data: avgC, borderColor: '#888480', borderDash: [6,4], fill: false, pointRadius: 0, borderWidth: 1.8, tension: 0.4},
+        {label: 'Recovered (pooled)', data: recC, borderColor: '#e85d5d', fill: false, pointRadius: 0, borderWidth: 2.5, tension: 0.4},
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, devicePixelRatio: 6,
+      plugins: {
+        legend: {display: false},
+        tooltip: {
+          mode: 'index', intersect: false,
+          backgroundColor: '#ffffff', titleColor: '#1a1a1a', bodyColor: '#666666', borderColor: '#cccccc', borderWidth: 1,
+          callbacks: {
+            title: items => `Age: ${items[0].label} yr`,
+            label: item => `${item.dataset.label}: ${item.parsed.y != null ? item.parsed.y.toFixed(1) : '—'} mm`,
+          }
+        }
+      },
+      interaction: {mode: 'index', intersect: false},
+      scales: {
+        x: {title: {display: true, text: 'Age (yr, relative)', color: '#555555', font: {size: 11}}, grid: {color: '#e8e6e1'}, ticks: {color: '#555555', maxTicksLimit: 12}},
+        y: {title: {display: true, text: 'Circumference (mm)', color: '#555555', font: {size: 11}}, grid: {color: '#e8e6e1'}, ticks: {color: '#555555'}},
+      },
+    }
+  });
+}
+
+
+function drawPooled(fit, mSpecs, fSpecs, p) {
+  killChart('pooled');
+  const ctx = document.getElementById('cPooled').getContext('2d');
+
+  // fit.sortedSpecs is sorted by median circ; we need to map back to sex.
+  // We stored trueStart per spec but sex identity is determined by matching
+  // object references. Easier: re-identify by checking which array contains each spec.
+  const mSet = new Set(mSpecs);
+  const ds = [];
+
+  // Plot each specimen's CGM series at estimated absolute ages
+  fit.sortedSpecs.forEach((sp, j) => {
+    const startAge = fit.starts[j];
+    const isMale = mSet.has(sp);
+    const baseColor = isMale ? '200,169,110' : '126,184,201';
+    ds.push({
+      label: isMale ? 'male' : 'female',
+      data: sp.cgmCounts.map((c, i) => ({ x: c + startAge, y: sp.circs[i] })),
+      borderColor: `rgba(${baseColor},0.55)`,
+      backgroundColor: `rgba(${baseColor},0.55)`,
+      borderWidth: 1.5,
+      pointRadius: 2.5,
+      pointStyle: 'circle',
+      tension: 0.3,
+      showLine: true,
+      fill: false,
+    });
+  });
+
+  // Overlay the recovered pooled curve as a line dataset
+  const tMax = Math.max(p.mt, p.ft) * 1.6;
+  const curveData = [];
+  for (let t = 0; t <= tMax; t += 0.3) {
+    curveData.push({ x: t, y: logistic(t, fit.A, fit.k, fit.t0) });
+  }
+  ds.push({
+    label: 'Recovered (pooled)',
+    data: curveData,
+    borderColor: '#e85d5d',
+    backgroundColor: 'transparent',
+    borderWidth: 2.5,
+    pointRadius: 0,
+    tension: 0.4,
+    showLine: true,
+    fill: false,
+  });
+
+  CS['pooled'] = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets: ds },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, devicePixelRatio: 6,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: item => `${item.dataset.label}: (${item.parsed.x.toFixed(1)} yr, ${item.parsed.y.toFixed(1)} mm)`
+          },
+          backgroundColor: '#ffffff', titleColor: '#1a1a1a', bodyColor: '#666666',
+          borderColor: '#cccccc', borderWidth: 1,
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Estimated age (yr, relative)', color: '#555555', font: { size: 11 } }, grid: { color: '#e8e6e1' }, ticks: { color: '#555555' } },
+        y: { title: { display: true, text: 'Circumference (mm)', color: '#555555', font: { size: 11 } }, grid: { color: '#e8e6e1' }, ticks: { color: '#555555' } },
+      },
+    }
+  });
+}
+
+
+function drawAgeCheck(fit, mSpecs, fSpecs, mP, fP, p) {
+  killChart('agecheck');
+  const ctx = document.getElementById('cAgeCheck').getContext('2d');
+  
+  const mSet = new Set(mSpecs);
+  const points = [];
+  
+  // For each specimen, we need to infer its true absolute age at the last CGM
+  // by inverting the true logistic curve for that morph
+  fit.sortedSpecs.forEach((sp, j) => {
+    const estStart = fit.starts[j];
+    const isMale = mSet.has(sp);
+    const lastCGMIdx = sp.circs.length - 1;
+    
+    // True absolute age at death: use the actual simulated death age
+    const trueAge = sp.deathAge;
+    
+    // Estimated absolute age at death from pooled fit
+    // Age = start age + CGM number (not array index!)
+    const estAge = estStart + sp.cgmCounts[lastCGMIdx];
+    
+    points.push({
+      x: trueAge,
+      y: estAge,
+      isMale: isMale
+    });
+  });
+  
+  // Separate by sex
+  const malePoints = points.filter(p => p.isMale).map(p => ({x: p.x, y: p.y}));
+  const femalePoints = points.filter(p => !p.isMale).map(p => ({x: p.x, y: p.y}));
+  
+  // Diagonal reference line (y=x)
+  const maxAge = Math.max(...points.map(p => Math.max(p.x, p.y))) * 1.1;
+  const diagLine = [{x: 0, y: 0}, {x: maxAge, y: maxAge}];
+  
+  CS['agecheck'] = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {label: 'Perfect agreement', data: diagLine, borderColor: '#888888', borderDash: [6,4], fill: false, pointRadius: 0, borderWidth: 2, tension: 0, showLine: true},
+        {label: 'Large morph', data: malePoints, borderColor: 'transparent', backgroundColor: 'rgba(200,169,110,0.7)', pointRadius: 5, pointStyle: 'circle'},
+        {label: 'Small morph', data: femalePoints, borderColor: 'transparent', backgroundColor: 'rgba(126,184,201,0.7)', pointRadius: 5, pointStyle: 'circle'},
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, devicePixelRatio: 6,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: item => `${item.dataset.label}: true=${item.parsed.x.toFixed(1)}yr, est=${item.parsed.y.toFixed(1)}yr, bias=${(item.parsed.y-item.parsed.x).toFixed(1)}yr`
+          },
+          backgroundColor: '#ffffff', titleColor: '#1a1a1a', bodyColor: '#666666',
+          borderColor: '#cccccc', borderWidth: 1,
+        }
+      },
+      scales: {
+        x: { 
+          title: { display: true, text: 'True age at death (yr)', color: '#555555', font: { size: 11 } }, 
+          grid: { color: '#e8e6e1' }, 
+          ticks: { color: '#555555' },
+          min: 0
+        },
+        y: { 
+          title: { display: true, text: 'Estimated age at death (yr)', color: '#555555', font: { size: 11 } }, 
+          grid: { color: '#e8e6e1' }, 
+          ticks: { color: '#555555' },
+          min: 0
+        },
+      },
+    }
+  });
+}
+
+
+function drawAgeBias(fit, mSpecs, fSpecs, mP, fP, p) {
+  killChart('agebias');
+  const ctx = document.getElementById('cAgeBias').getContext('2d');
+  
+  const mSet = new Set(mSpecs);
+  const points = [];
+  
+  // For each specimen, compute true age at death and estimated age at death
+  fit.sortedSpecs.forEach((sp, j) => {
+    const estStart = fit.starts[j];
+    const isMale = mSet.has(sp);
+    const lastCGMIdx = sp.circs.length - 1;
+    const finalCirc = sp.circs[lastCGMIdx];
+    
+    // True absolute age at death: use the actual simulated death age
+    const trueAge = sp.deathAge;
+    
+    // Estimated absolute age at death from pooled fit
+    // Age = start age + CGM number (not array index!)
+    const estAge = estStart + sp.cgmCounts[lastCGMIdx];
+    
+    // Age bias = estimated - true
+    const ageBias = estAge - trueAge;
+    
+    points.push({
+      x: finalCirc,
+      y: ageBias,
+      isMale: isMale
+    });
+  });
+  
+  // Separate by sex
+  const malePoints = points.filter(p => p.isMale).map(p => ({x: p.x, y: p.y}));
+  const femalePoints = points.filter(p => !p.isMale).map(p => ({x: p.x, y: p.y}));
+  
+  // Zero bias reference line (y=0)
+  const maxCirc = Math.max(...points.map(p => p.x)) * 1.05;
+  const minCirc = Math.min(...points.map(p => p.x)) * 0.95;
+  const zeroLine = [{x: minCirc, y: 0}, {x: maxCirc, y: 0}];
+  
+  CS['agebias'] = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [
+        {label: 'Zero bias', data: zeroLine, borderColor: '#888888', borderDash: [6,4], fill: false, pointRadius: 0, borderWidth: 2, tension: 0, showLine: true},
+        {label: 'Large morph', data: malePoints, borderColor: 'transparent', backgroundColor: 'rgba(200,169,110,0.7)', pointRadius: 6, pointStyle: 'circle'},
+        {label: 'Small morph', data: femalePoints, borderColor: 'transparent', backgroundColor: 'rgba(126,184,201,0.7)', pointRadius: 6, pointStyle: 'circle'},
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, devicePixelRatio: 6,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: item => `${item.dataset.label}: size=${item.parsed.x.toFixed(0)}mm, bias=${item.parsed.y >= 0 ? '+' : ''}${item.parsed.y.toFixed(1)}yr`
+          },
+          backgroundColor: '#ffffff', titleColor: '#1a1a1a', bodyColor: '#666666',
+          borderColor: '#cccccc', borderWidth: 1,
+        }
+      },
+      scales: {
+        x: { 
+          title: { display: true, text: 'Final circumference at death (mm)', color: '#555555', font: { size: 11 } }, 
+          grid: { color: '#e8e6e1' }, 
+          ticks: { color: '#555555' }
+        },
+        y: { 
+          title: { display: true, text: 'Age estimation bias (yr)', color: '#555555', font: { size: 11 } }, 
+          grid: { color: '#e8e6e1' }, 
+          ticks: { color: '#555555' }
+        },
+      },
+    }
+  });
+}
+
+// ── Comparison table & interpretation ────────────────────────────────────────
+// For logistic: peak growth rate = A*k/4 (at inflection t0)
+// Age at 95% asymptote: logistic(t) = 0.95*A => t = t0 + ln(19)/k
+function t95(A, k, t0) { return t0 + Math.log(19) / k; }
+function pgr(A, k)     { return A * k / 4; }
+
+function setBias(id, rec, tru) {
+  const el = document.getElementById(id);
+  const diff = rec - tru;
+  const sign = diff > 0 ? '+' : '';
+  el.textContent = sign + diff.toFixed(1);
+  el.className = 'bias ' + (Math.abs(diff) < 1 ? 'ok' : diff > 0 ? 'pos' : 'neg');
+}
+
+function showMetrics(fit, mP, fP, p) {
+  // True values per morph
+  const mPGR  = pgr(p.mA, mP.k);
+  const fPGR  = pgr(p.fA, fP.k);
+  const rPGR  = pgr(fit.A, fit.k);
+  const mT95  = t95(p.mA, mP.k, mP.t0);
+  const fT95  = t95(p.fA, fP.k, fP.t0);
+  const rT95  = t95(fit.A, fit.k, fit.t0);
+
+  // Fill table
+  const aA   = (p.mA + p.fA) / 2;
+  const aPGR = (mPGR + fPGR) / 2;
+  const aT95 = (mT95 + fT95) / 2;
+  document.getElementById('t-mA').textContent = p.mA.toFixed(0);
+  document.getElementById('t-fA').textContent = p.fA.toFixed(0);
+  document.getElementById('t-aA').textContent = aA.toFixed(0);
+  document.getElementById('t-rA').textContent = fit.A.toFixed(0);
+  document.getElementById('t-mpgr').textContent = mPGR.toFixed(1);
+  document.getElementById('t-fpgr').textContent = fPGR.toFixed(1);
+  document.getElementById('t-apgr').textContent = aPGR.toFixed(1);
+  document.getElementById('t-rpgr').textContent = rPGR.toFixed(1);
+  document.getElementById('t-mt95').textContent = mT95.toFixed(1);
+  document.getElementById('t-ft95').textContent = fT95.toFixed(1);
+  document.getElementById('t-at95').textContent = aT95.toFixed(1);
+  document.getElementById('t-rt95').textContent = rT95.toFixed(1);
+
+  // Bias rows (recovered minus each true)
+  setBias('t-bA-m', fit.A, p.mA);
+  setBias('t-bpgr-m', rPGR, mPGR);
+  setBias('t-bt95-m', rT95, mT95);
+  setBias('t-bA-f', fit.A, p.fA);
+  setBias('t-bpgr-f', rPGR, fPGR);
+  setBias('t-bt95-f', rT95, fT95);
+  setBias('t-bA-a', fit.A, aA);
+  setBias('t-bpgr-a', rPGR, aPGR);
+  setBias('t-bt95-a', rT95, aT95);
+
+  // Interpretation
+  const sizePct  = (Math.abs(p.mA - p.fA) / Math.min(p.mA, p.fA) * 100).toFixed(0);
+  const t95BiasM = rT95 - mT95, t95BiasF = rT95 - fT95;
+  const pgrBiasM = rPGR - mPGR, pgrBiasF = rPGR - fPGR;
+  let html = [];
+
+  const mDeadPct = Math.round((p.mmdf || 0) * 100);
+  const fDeadPct = Math.round((p.fmdf || 0) * 100);
+  const samplingNote = (mDeadPct > 0 || fDeadPct > 0)
+    ? ` <span class="w">Sampling bias active:</span> large morph drawn only from oldest <strong>${100-mDeadPct}%</strong> of lifespan${fDeadPct > 0 ? `; small morph from oldest ${100-fDeadPct}%` : ''}.`
+    : ' No sampling bias — deaths uniform across lifespan.';
+  html.push(`<strong>Setup:</strong> Large morph asymptote = ${p.mA} mm, small morph = ${p.fA} mm — a <strong>${sizePct}%</strong> difference. N = ${p.mn} large + ${p.fn} small.${samplingNote}`);
+
+  // Age at 95% size
+  const t95BiasA = rT95 - aT95;
+  const t95sign = v => (v > 0.5 ? `<span class="w">+${v.toFixed(1)} yr overestimate</span>` : v < -0.5 ? `<span class="g">${v.toFixed(1)} yr underestimate</span>` : `<span class="g">within 0.5 yr</span>`);
+  html.push(`<strong>Age at 95% size:</strong> Recovered = <strong>${rT95.toFixed(1)} yr</strong>. Vs. true average (${aT95.toFixed(1)} yr): ${t95sign(t95BiasA)}. [Large morph: ${mT95.toFixed(1)} yr, small morph: ${fT95.toFixed(1)} yr.]`);
+
+  // Peak growth rate
+  const pgrBiasA = rPGR - aPGR;
+  const pgrSign = v => (v < -0.5 ? `<span class="w">${v.toFixed(1)} mm/yr underestimate</span>` : v > 0.5 ? `<span class="g">+${v.toFixed(1)} mm/yr overestimate</span>` : `<span class="g">within 0.5 mm/yr</span>`);
+  html.push(`<strong>Peak growth rate:</strong> Recovered = <strong>${rPGR.toFixed(1)} mm/yr</strong>. Vs. true average (${aPGR.toFixed(1)} mm/yr): ${pgrSign(pgrBiasA)}. [Large morph: ${mPGR.toFixed(1)}, small morph: ${fPGR.toFixed(1)} mm/yr.]`);
+
+  // Mechanism — adapt based on what's driving the bias
+  if (mDeadPct >= 50) {
+    html.push(`<strong>Mechanism (sampling bias):</strong> With large-morph specimens drawn only from late life, the optimizer sees a cluster of large, slowly-growing records with no corresponding early-growth data. Because those records look like a decelerating plateau, the fitter assigns them very late start-ages — stretching the sigmoid rightward and inflating the estimated lifespan. The peak growth rate is underestimated because the rapid early-growth phase of the large morph is absent from the data entirely.`);
+  } else if (Math.abs(p.mA - p.fA) > 80) {
+    html.push(`<strong>Mechanism (size dimorphism):</strong> The optimizer cannot distinguish "large morph at plateau" from "average individual still growing." It reconciles both size clouds by choosing a higher asymptote reached later — producing a longer, shallower sigmoid than either morph shows. Try setting large-morph earliest death to 60–70% to add the sampling bias on top of this.`);
+  }
+
+  document.getElementById('interp').innerHTML = html.join('<br><br>');
+  
+  // Populate curve equations
+  document.getElementById('eq-male').textContent = 
+    `C(t) = ${p.mA.toFixed(1)} / (1 + exp(-${mP.k.toFixed(6)} × (t - ${mP.t0.toFixed(2)})))`;
+  document.getElementById('eq-female').textContent = 
+    `C(t) = ${p.fA.toFixed(1)} / (1 + exp(-${fP.k.toFixed(6)} × (t - ${fP.t0.toFixed(2)})))`;
+  
+  // For average curve, show the simple average of the two asymptotes and parameters
+  const avgA = (p.mA + p.fA) / 2;
+  const avgK = (mP.k + fP.k) / 2;
+  const avgT0 = (mP.t0 + fP.t0) / 2;
+  document.getElementById('eq-avg').textContent = 
+    `C(t) = ${avgA.toFixed(1)} / (1 + exp(-${avgK.toFixed(6)} × (t - ${avgT0.toFixed(2)})))`;
+  
+  document.getElementById('eq-pooled').textContent = 
+    `C(t) = ${fit.A.toFixed(1)} / (1 + exp(-${fit.k.toFixed(6)} × (t - ${fit.t0.toFixed(2)})))`;
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+function runSim() {
+  const btn = document.getElementById('runBtn');
+  btn.textContent = '&#8987; Computing\u2026'; btn.classList.add('running');
+  document.getElementById('interp').innerHTML = 'Fitting\u2026 this may take a few seconds.';
+  setTimeout(() => {
+    try { _run(); }
+    catch(e) {
+      console.error(e);
+      document.getElementById('interp').innerHTML = `<span style="color:var(--warn)">Error: ${e.message}</span>`;
+    }
+    btn.textContent = '&#9654; Run Simulation'; btn.classList.remove('running');
+  }, 40);
+}
+
+function _run() {
+  const g = id => parseFloat(document.getElementById(id).value);
+  const p = {mA:g('mA'), mt:g('mt'), mn:g('mn'), mmdf:g('mmdf')/100,
+             fA:g('fA'), ft:g('ft'), fn:g('fn'), fmdf:g('fmdf')/100,
+             c0:g('c0'), ns:g('ns'), cg:g('cg'), sd:g('sd')};
+  const rand = mkRand(p.sd);
+  const mP = solveParams(p.mA, p.c0, p.mt);
+  const fP = solveParams(p.fA, p.c0, p.ft);
+  const mSpecs = genSpecimens(rand, p.mA, mP.k, mP.t0, p.mn, p.ns, p.cg, Math.min(35, Math.round(p.mt * 1.2)), p.mmdf);
+  const fSpecs = genSpecimens(rand, p.fA, fP.k, fP.t0, p.fn, p.ns, p.cg, Math.min(35, Math.round(p.ft * 1.2)), p.fmdf);
+  const all = [...mSpecs, ...fSpecs];
+  const fit = jointFit(all);
+  drawRaw(mSpecs, fSpecs);
+  drawTrueAge(mSpecs, fSpecs);
+  drawFit(fit, mP, fP, p);
+  drawPooled(fit, mSpecs, fSpecs, p);
+  drawAgeCheck(fit, mSpecs, fSpecs, mP, fP, p);
+  drawAgeBias(fit, mSpecs, fSpecs, mP, fP, p);
+  showMetrics(fit, mP, fP, p);
+}
+
+// ── Slider wiring ─────────────────────────────────────────────────────────────
+[['mA','v-mA'],['mt','v-mt'],['mn','v-mn'],['mmdf','v-mmdf'],
+ ['fA','v-fA'],['ft','v-ft'],['fn','v-fn'],['fmdf','v-fmdf'],
+ ['c0','v-c0'],['ns','v-ns'],['cg','v-cg'],['sd','v-sd']].forEach(([sid, vid]) => {
+  const s = document.getElementById(sid), d = document.getElementById(vid);
+  s.addEventListener('input', () => d.textContent = s.value);
+});
+
+// ── Export functions ──────────────────────────────────────────────────────────
+
+// Chart panels: open in new window at high resolution
+function exportChart(canvasId, filename, btn) {
+  const csKey  = canvasId === 'cRaw' ? 'raw' : canvasId === 'cTrueAge' ? 'trueage' : canvasId === 'cPooled' ? 'pooled' : canvasId === 'cAgeCheck' ? 'agecheck' : canvasId === 'cAgeBias' ? 'agebias' : 'fit';
+  const chart = CS[csKey];
+  if (!chart) { 
+    alert('Run the simulation first.'); 
+    return; 
+  }
+  
+  try {
+    const base64 = chart.toBase64Image();
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${filename}</title>
+        <style>
+          body { margin: 0; padding: 20px; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+          img { max-width: 100%; height: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: white; }
+        </style>
+      </head>
+      <body>
+        <img src="${base64}" alt="${filename}">
+      </body>
+      </html>
+    `);
+    win.document.close();
+  } catch (e) {
+    alert('Failed to open chart: ' + e.message);
+  }
+}
+
+// Table panel: draw the table content onto a canvas manually and open in new window
+function exportTable(tableId, filename, btn) {
+  const tbl = document.getElementById(tableId);
+  if (!tbl || document.getElementById('t-mpgr').textContent === '—') {
+    alert('Run the simulation first.'); return;
+  }
+
+  // Read current values from the DOM
+  const rows = [
+    { label: 'True large morph',       asym: document.getElementById('t-mA').textContent, pgr: document.getElementById('t-mpgr').textContent, t95: document.getElementById('t-mt95').textContent, cls: 'male' },
+    { label: 'True small morph',       asym: document.getElementById('t-fA').textContent, pgr: document.getElementById('t-fpgr').textContent, t95: document.getElementById('t-ft95').textContent, cls: 'female' },
+    { label: 'True average (m+f)/2',   asym: document.getElementById('t-aA').textContent, pgr: document.getElementById('t-apgr').textContent, t95: document.getElementById('t-at95').textContent, cls: 'average' },
+    { label: 'Recovered (pooled)',      asym: document.getElementById('t-rA').textContent, pgr: document.getElementById('t-rpgr').textContent, t95: document.getElementById('t-rt95').textContent, cls: 'pooled' },
+    { label: 'Bias (recovered − average)', asym: document.getElementById('t-bA-a').textContent, pgr: document.getElementById('t-bpgr-a').textContent, t95: document.getElementById('t-bt95-a').textContent, cls: 'bias' },
+    { label: 'Bias (recovered − large)', asym: document.getElementById('t-bA-m').textContent, pgr: document.getElementById('t-bpgr-m').textContent, t95: document.getElementById('t-bt95-m').textContent, cls: 'bias' },
+    { label: 'Bias (recovered − small)', asym: document.getElementById('t-bA-f').textContent, pgr: document.getElementById('t-bpgr-f').textContent, t95: document.getElementById('t-bt95-f').textContent, cls: 'bias' },
+  ];
+
+  const S = 8; // scale factor for sharpness (publication multi-panel quality)
+  const PAD = 32 * S, COL0 = 260 * S, COL1 = 140 * S, COL2 = 160 * S, COL3 = 160 * S;
+  const W = PAD*2 + COL0 + COL1 + COL2 + COL3;
+  const ROW_H = 40 * S, HEADER_H = 44 * S, TITLE_H = 48 * S;
+  const H = PAD*2 + TITLE_H + HEADER_H + rows.length * ROW_H + PAD;
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+
+  // Background
+  c.fillStyle = '#ffffff';
+  c.fillRect(0, 0, W, H);
+
+  // Title
+  c.fillStyle = '#1a1a1a';
+  c.font = `bold ${15*S}px Georgia, serif`;
+  c.fillText('Key Parameter Comparison', PAD, PAD + 16*S);
+
+  // Column headers
+  const hY = PAD + TITLE_H;
+  c.fillStyle = '#888888';
+  c.font = `${9*S}px "Courier New", monospace`;
+  c.fillText('CURVE', PAD + 2*S, hY + 14*S);
+  c.textAlign = 'right';
+  c.fillText('ASYMPTOTE', PAD + COL0 + COL1 - 4*S, hY + 14*S);
+  c.fillText('PEAK GROWTH RATE', PAD + COL0 + COL1 + COL2 - 4*S, hY + 8*S);
+  c.fillText('(mm circ./yr)', PAD + COL0 + COL1 + COL2 - 4*S, hY + 20*S);
+  c.fillText('AGE AT 95% SIZE', PAD + COL0 + COL1 + COL2 + COL3 - 4*S, hY + 8*S);
+  c.fillText('(yr)', PAD + COL0 + COL1 + COL2 + COL3 - 4*S, hY + 20*S);
+  c.textAlign = 'left';
+
+  // Header bottom border
+  c.strokeStyle = '#cccccc';
+  c.lineWidth = 1*S;
+  c.beginPath(); c.moveTo(PAD, hY + HEADER_H - 2*S); c.lineTo(W - PAD, hY + HEADER_H - 2*S); c.stroke();
+
+  // Accent colors per row type
+  const accentMap = { male: '#c8a96e', female: '#7eb8c9', average: '#888480', pooled: '#e85d5d', bias: '#cccccc' };
+  const textMap   = { male: '#1a1a1a', female: '#1a1a1a', average: '#888480', pooled: '#1a1a1a', bias: '#666666' };
+
+  rows.forEach((row, i) => {
+    const y = hY + HEADER_H + i * ROW_H;
+    const isLast = i === rows.length - 1;
+
+    // Accent bar on left
+    c.fillStyle = accentMap[row.cls];
+    c.fillRect(PAD, y + 4*S, 3*S, ROW_H - 8*S);
+
+    // Label
+    c.fillStyle = textMap[row.cls];
+    const fontSize = row.cls === 'bias' ? 9*S : 11*S;
+    c.font = `${fontSize}px "Courier New", monospace`;
+    c.fillText(row.label, PAD + 8*S, y + ROW_H/2 + fontSize*0.35);
+
+    // Values (right-aligned)
+    const valFontSize = row.cls === 'bias' ? 10*S : 14*S;
+    c.font = `${row.cls === 'bias' ? '' : 'bold '}${valFontSize}px Georgia, serif`;
+
+    // Asymptote column
+    if (row.cls === 'bias') {
+      const asymN = parseFloat(row.asym);
+      c.fillStyle = asymN > 0.5 ? '#d9534f' : asymN < -0.5 ? '#5b9fa6' : '#888888';
+    } else {
+      c.fillStyle = textMap[row.cls];
+    }
+    c.textAlign = 'right';
+    c.fillText(row.asym, PAD + COL0 + COL1 - 4*S, y + ROW_H/2 + valFontSize*0.35);
+
+    // Peak growth rate column
+    if (row.cls === 'bias') {
+      const pgrN = parseFloat(row.pgr);
+      c.fillStyle = pgrN > 0.5 ? '#d9534f' : pgrN < -0.5 ? '#5b9fa6' : '#888888';
+    } else {
+      c.fillStyle = textMap[row.cls];
+    }
+    c.fillText(row.pgr, PAD + COL0 + COL1 + COL2 - 4*S, y + ROW_H/2 + valFontSize*0.35);
+
+    // Age at 95% column
+    if (row.cls === 'bias') {
+      const t95N = parseFloat(row.t95);
+      c.fillStyle = t95N > 0.5 ? '#d9534f' : t95N < -0.5 ? '#5b9fa6' : '#888888';
+    } else {
+      c.fillStyle = textMap[row.cls];
+    }
+    c.fillText(row.t95, PAD + COL0 + COL1 + COL2 + COL3 - 4*S, y + ROW_H/2 + valFontSize*0.35);
+    c.textAlign = 'left';
+
+    // Row separator
+    if (!isLast) {
+      c.strokeStyle = '#eeeeee';
+      c.lineWidth = 1*S;
+      c.beginPath(); c.moveTo(PAD + 8*S, y + ROW_H - 1*S); c.lineTo(W - PAD, y + ROW_H - 1*S); c.stroke();
+    }
+  });
+
+  const base64 = cv.toDataURL('image/png');
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${filename}</title>
+      <style>
+        body { margin: 0; padding: 20px; background: #f5f5f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        img { box-shadow: 0 4px 12px rgba(0,0,0,0.15); background: white; }
+      </style>
+    </head>
+    <body>
+      <img src="${base64}" alt="${filename}">
+    </body>
+    </html>
+  `);
+  win.document.close();
+}
+</script>
+</body>
+</html>
