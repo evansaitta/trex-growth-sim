@@ -81,11 +81,13 @@
     <div class="row"><label>Age at 90% size (yr) <span id="v-mt">21</span></label><input type="range" class="mr" id="mt" min="18" max="55" value="21" step="1"></div>
     <div class="row"><label>N specimens <span id="v-mn">8</span></label><input type="range" class="mr" id="mn" min="2" max="14" value="8" step="1"></div>
     <div class="row"><label>Earliest death (% of lifespan) <span id="v-mmdf">60</span>%</label><input type="range" class="mr" id="mmdf" min="0" max="90" value="60" step="5"></div>
+    <div class="row"><label>Intra-sex growth variation σ <span id="v-mgsv">0.10</span></label><input type="range" class="mr" id="mgsv" min="0" max="0.25" value="0.10" step="0.01"></div>
     <div class="sec" style="color:var(--female)">&#9792; Small morph (female)</div>
     <div class="row"><label>Asymptotic size (mm) <span id="v-fA">420</span></label><input type="range" class="fr" id="fA" min="250" max="650" value="420" step="5"></div>
     <div class="row"><label>Age at 90% size (yr) <span id="v-ft">19</span></label><input type="range" class="fr" id="ft" min="12" max="50" value="19" step="1"></div>
     <div class="row"><label>N specimens <span id="v-fn">8</span></label><input type="range" class="fr" id="fn" min="2" max="14" value="8" step="1"></div>
     <div class="row"><label>Earliest death (% of lifespan) <span id="v-fmdf">30</span>%</label><input type="range" class="fr" id="fmdf" min="0" max="90" value="30" step="5"></div>
+    <div class="row"><label>Intra-sex growth variation σ <span id="v-fgsv">0.08</span></label><input type="range" class="fr" id="fgsv" min="0" max="0.25" value="0.08" step="0.01"></div>
     <div class="sec">Shared / noise</div>
     <div class="row"><label>Hatchling size (mm) <span id="v-c0">22</span></label><input type="range" id="c0" min="8" max="50" value="22" step="1"></div>
     <div class="row"><label>Measurement noise &#963; <span id="v-ns">12</span></label><input type="range" id="ns" min="2" max="40" value="12" step="1"></div>
@@ -173,6 +175,7 @@
             <th class="num">Asymptote<br>(mm)</th>
             <th class="num">Peak growth rate<br>(mm circ./yr)</th>
             <th class="num">Age at 95% size<br>(yr)</th>
+            <th class="num">Hatchling size<br>(mm)</th>
           </tr>
         </thead>
         <tbody>
@@ -181,42 +184,49 @@
             <td class="num" id="t-mA">—</td>
             <td class="num" id="t-mpgr">—</td>
             <td class="num" id="t-mt95">—</td>
+            <td class="num" id="t-mc0">—</td>
           </tr>
           <tr class="female">
             <td class="label">&#9792; True small morph</td>
             <td class="num" id="t-fA">—</td>
             <td class="num" id="t-fpgr">—</td>
             <td class="num" id="t-ft95">—</td>
+            <td class="num" id="t-fc0">—</td>
           </tr>
           <tr style="border-left:2px dashed #888480;">
             <td class="label" style="color:#888480;">&#9643; True average (m+f)/2</td>
             <td class="num" id="t-aA">—</td>
             <td class="num" id="t-apgr">—</td>
             <td class="num" id="t-at95">—</td>
+            <td class="num" id="t-ac0">—</td>
           </tr>
           <tr class="pooled">
             <td class="label">&#9632; Recovered (pooled)</td>
             <td class="num" id="t-rA">—</td>
             <td class="num" id="t-rpgr">—</td>
             <td class="num" id="t-rt95">—</td>
+            <td class="num" id="t-rc0">—</td>
           </tr>
           <tr>
             <td class="label" style="color:var(--muted);font-size:10px;padding-top:10px">Bias (recovered − average)</td>
             <td class="bias" id="t-bA-a">—</td>
             <td class="bias" id="t-bpgr-a">—</td>
             <td class="bias" id="t-bt95-a">—</td>
+            <td class="bias" id="t-bc0-a">—</td>
           </tr>
           <tr>
             <td class="label" style="color:var(--muted);font-size:10px">Bias (recovered − large morph)</td>
             <td class="bias" id="t-bA-m">—</td>
             <td class="bias" id="t-bpgr-m">—</td>
             <td class="bias" id="t-bt95-m">—</td>
+            <td class="bias" id="t-bc0-m">—</td>
           </tr>
           <tr>
             <td class="label" style="color:var(--muted);font-size:10px">Bias (recovered − small morph)</td>
             <td class="bias" id="t-bA-f">—</td>
             <td class="bias" id="t-bpgr-f">—</td>
             <td class="bias" id="t-bt95-f">—</td>
+            <td class="bias" id="t-bc0-f">—</td>
           </tr>
         </tbody>
       </table>
@@ -323,10 +333,10 @@ function nelderMead(f, x0, maxIter, tol) {
 // Woodward et al. 2026 Equation (4): Simultaneous optimization
 // Optimizes curve parameters (A, k, t0) and start ages together in one step
 function jointFit(specimens) {
+  // Woodward: "the growth series with the smallest circumference CGM"
+  // = the specimen whose FIRST (innermost) measured CGM is smallest
   const sorted = [...specimens].sort((a, b) => {
-    const ma = a.circs[Math.floor(a.circs.length / 2)];
-    const mb = b.circs[Math.floor(b.circs.length / 2)];
-    return ma - mb;
+    return a.circs[0] - b.circs[0];  // First measured CGM (smallest by definition within each specimen)
   });
   
   const allC = sorted.flatMap(s => s.circs);
@@ -337,21 +347,152 @@ function jointFit(specimens) {
   const k0 = 0.15;
   const t0_0 = 12;
   
-  // Initialize start ages by logistic inversion
-  const s0 = sorted.map(sp => {
-    const c = Math.min(sp.circs[0], A0 * 0.9999);
-    const r = A0 / c - 1;
-    if (r <= 0) return t0_0 + 5;
-    const ageAtFirstCGM = t0_0 - Math.log(r) / k0;
-    // Start age is age of first CGM minus 1 (since cgmCount[0] = 1)
-    return Math.max(0, ageAtFirstCGM - 1);
-  });
-  const minS = Math.min(...s0);
-  const normS = s0.map(v => v - minS);
+  // ── STEP 1: Myhrvold least squares clustering (Woodward et al. 2026) ───
+  // From Woodward: "we adopt the convention of setting start₁=1, so the starts are
+  // the starting ages relative to MOR 1189, as it has the smallest circumference CGM."
+  function clusterStartingAges(specs) {
+    const n = specs.length;
+    const starts = new Array(n).fill(0);
+    starts[0] = 0;  // Reference specimen: first CGM at age 1 (cgmCount=1 + start=0 = age 1)
+    const pairwiseOffsets = {};
+    
+    // Myhrvold (2013) least squares clustering: find optimal overlap between pairs
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const sp1 = specs[i];
+        const sp2 = specs[j];
+        const minC1 = Math.min(...sp1.circs);
+        const maxC1 = Math.max(...sp1.circs);
+        const minC2 = Math.min(...sp2.circs);
+        const maxC2 = Math.max(...sp2.circs);
+        const overlapMin = Math.max(minC1, minC2);
+        const overlapMax = Math.min(maxC1, maxC2);
+        if (overlapMin >= overlapMax) continue;
+        
+        const points1 = [];
+        const points2 = [];
+        for (let k = 0; k < sp1.circs.length; k++) {
+          if (sp1.circs[k] >= overlapMin && sp1.circs[k] <= overlapMax) {
+            points1.push({circ: sp1.circs[k], age: sp1.cgmCounts[k]});
+          }
+        }
+        for (let k = 0; k < sp2.circs.length; k++) {
+          if (sp2.circs[k] >= overlapMin && sp2.circs[k] <= overlapMax) {
+            points2.push({circ: sp2.circs[k], age: sp2.cgmCounts[k]});
+          }
+        }
+        if (points1.length < 2 || points2.length < 2) continue;
+        
+        // Minimize MSE of age offsets over circumference overlap region
+        let bestOffset = 0;
+        let bestDistance = Infinity;
+        for (let offset = -50; offset <= 50; offset += 0.5) {
+          let totalDistance = 0;
+          for (const p1 of points1) {
+            let closestP2 = points2[0];
+            let minDiff = Math.abs(points2[0].circ - p1.circ);
+            for (const p2 of points2) {
+              const diff = Math.abs(p2.circ - p1.circ);
+              if (diff < minDiff) { minDiff = diff; closestP2 = p2; }
+            }
+            const ageError = p1.age - (closestP2.age + offset);
+            totalDistance += ageError * ageError;
+          }
+          if (totalDistance < bestDistance) {
+            bestDistance = totalDistance;
+            bestOffset = offset;
+          }
+        }
+        pairwiseOffsets[`${i},${j}`] = bestOffset;
+      }
+    }
+    
+    // Propagate offsets via BFS from reference specimen (Woodward Step 1)
+    const visited = new Set([0]);
+    let queue = [0];
+    while (queue.length > 0) {
+      const next_queue = [];
+      for (const i of queue) {
+        for (let j = 0; j < n; j++) {
+          if (visited.has(j)) continue;
+          const key = i < j ? `${i},${j}` : `${j},${i}`;
+          if (pairwiseOffsets[key] !== undefined) {
+            const offset = i < j ? pairwiseOffsets[key] : -pairwiseOffsets[key];
+            starts[j] = starts[i] + offset;
+            visited.add(j);
+            next_queue.push(j);
+          }
+        }
+      }
+      queue = next_queue;
+    }
+    
+    // Handle specimens with no overlap: estimate from initial curve fit
+    for (let i = 1; i < n; i++) {
+      if (!visited.has(i)) {
+        const sp = specs[i];
+        const c = Math.min(sp.circs[0], A0 * 0.9999);
+        const r = Math.max(0.001, A0 / c - 1);
+        const ageAtFirstCGM = t0_0 - Math.log(r) / k0;
+        starts[i] = Math.max(starts[i - 1], ageAtFirstCGM - 1);
+      }
+    }
+    
+    // Ensure all starting ages are >= 0 to guarantee firstCGMAge >= 1
+    // (cgmCount[0] = 1, so we need start >= 0 for firstCGMAge = 1 + start >= 1)
+    const minStart = Math.min(...starts);
+    if (minStart < 0) {
+      const shift = -minStart;  // Shift so minStart becomes 0
+      for (let i = 0; i < n; i++) {
+        starts[i] += shift;
+      }
+    }
+    
+    return starts;
+  }
   
-  // Woodward Equation (4): Simultaneous optimization
-  // Variables: [ln(A), ln(k), t0, start_1, start_2, ..., start_{M-1}]
-  // (start_0 fixed at 0 as reference)
+  // ── STEP 2: Fit curve to clustered age-adjusted data (Woodward) ───
+  // This gives us good initial parameter guesses
+  function fitInitialCurve(specs, starts) {
+    // Create age-adjusted dataset
+    const ageCircData = [];
+    for (let j = 0; j < specs.length; j++) {
+      const sp = specs[j];
+      for (let i = 0; i < sp.circs.length; i++) {
+        const absAge = sp.cgmCounts[i] + starts[j];
+        ageCircData.push({age: absAge, circ: sp.circs[i]});
+      }
+    }
+    
+    // Quick logistic fit using simple least squares
+    // C(t) = A / (1 + exp(-k(t - t0)))
+    // Use Nelder-Mead to fit
+    function fitLogistic(params) {
+      const [A, k, t0] = params;
+      if (A < 30 || A > 2500 || k < 0.005 || k > 3) return 1e15;
+      let ssr = 0;
+      for (const pt of ageCircData) {
+        const pred = A / (1 + Math.exp(-k * (pt.age - t0)));
+        ssr += (pred - pt.circ) ** 2;
+      }
+      return ssr;
+    }
+    
+    const res = nelderMead(fitLogistic, [A0, k0, t0_0]);
+    return {A: res.x[0], k: res.x[1], t0: res.x[2]};
+  }
+  
+  // Get initial starting ages from clustering
+  const clusteredStarts = clusterStartingAges(sorted);
+  
+  // Fit curve to get good initial parameters
+  const initParams = fitInitialCurve(sorted, clusteredStarts);
+  
+  // ── STEP 3: Joint optimization with good initial guesses ───
+  // Woodward Equation (4): Simultaneous optimization of curve params and starting ages
+  const normS = clusteredStarts;  // Use clustered starting ages as initial guess
+  
+  // Loss function for Nelder-Mead optimization
   function loss(params) {
     const A  = Math.exp(params[0]);
     const k  = Math.exp(params[1]);
@@ -360,16 +501,16 @@ function jointFit(specimens) {
     // Parameter bounds
     if (!isFinite(A) || !isFinite(k) || A < 30 || A > 2500 || k < 0.005 || k > 3) return 1e15;
     
-    const starts = [0, ...params.slice(3)];
+    const starts = [0, ...params.slice(3)];  // Reference specimen at start=0 (clustering ensures all firstCGMAge >= 1)
     
-    // Constraint: all start ages >= 0 (so first CGM at age >= 1)
-    if (starts.some(s => s < 0)) return 1e15;
+    // Constraint: all start ages >= 0 (prevent negative ages)
+    if (starts.some(s => !isFinite(s) || s < 0)) return 1e15;
     
     // Constraint: first CGM must be at age >= 1 for all specimens
     for (let j = 0; j < sorted.length; j++) {
       const sp = sorted[j];
       const firstCGMAge = sp.cgmCounts[0] + starts[j];
-      if (firstCGMAge < 1) return 1e15;
+      if (firstCGMAge < 1 || !isFinite(firstCGMAge)) return 1e15;
     }
     
     // Compute sum of squared residuals
@@ -379,14 +520,16 @@ function jointFit(specimens) {
       for (let i = 0; i < sp.circs.length; i++) {
         const t = sp.cgmCounts[i] + starts[j];
         const pred = logistic(t, A, k, t0);
+        if (!isFinite(pred)) return 1e15;
         total += (pred - sp.circs[i]) ** 2;
       }
     }
     return total;
   }
   
-  // Initial parameter vector: [ln(A0), ln(k0), t0_0, normalized starts for specimens 1..M-1]
-  const x0 = [Math.log(A0), Math.log(k0), t0_0, ...normS.slice(1)];
+  // Initial parameter vector: [ln(A), ln(k), t0, normalized starts for specimens 1..M-1]
+  // Use the fitted initial parameters from the clustered curve fit
+  const x0 = [Math.log(initParams.A), Math.log(initParams.k), initParams.t0, ...normS.slice(1)];
   
   // Run optimization
   const res = nelderMead(loss, x0);
@@ -428,11 +571,15 @@ function bootstrapCI(specimens, nBoot, seed) {
 
 // ── Specimen generation ───────────────────────────────────────────────────────
 // minDeathFrac: 0 = any age sampled uniformly; 0.7 = only oldest 30% of lifespan sampled
-function genSpecimens(rand, A, k, t0, n, noise, avgCGM, maxAge, minDeathFrac) {
+function genSpecimens(rand, A, k, t0, n, noise, avgCGM, maxAge, minDeathFrac, kVar) {
   minDeathFrac = minDeathFrac || 0;
+  kVar = kVar || 0; // Intra-sex growth variation (SD of k and A as proportions)
   const minDeath = Math.round(minDeathFrac * maxAge);
   const specs = [];
   for (let s = 0; s < n; s++) {
+    // Perturb only A (asymptotic size) for this individual based on intra-sex variation
+    // k and t0 remain constant for all individuals of the same sex
+    const individualA = A * (1 + rNorm(rand, 0, kVar));
     const nCGM = Math.max(4, Math.round(avgCGM + rNorm(rand, 0, 7)));
     // Allow death age from max(nCGM, minDeath) to maxAge
     const lo = Math.max(nCGM, minDeath);
@@ -442,8 +589,8 @@ function genSpecimens(rand, A, k, t0, n, noise, avgCGM, maxAge, minDeathFrac) {
     const cgmCounts = [], circs = [];
     for (let i = 0; i < nCGM; i++) {
       cgmCounts.push(i + 1);
-      // Add noise to true value
-      const trueVal = logistic(startAge + i, A, k, t0);
+      // Add noise to true value, using this individual's A but constant k and t0
+      const trueVal = logistic(startAge + i, individualA, k, t0);
       let noisyVal = Math.max(10, trueVal + rNorm(rand, 0, noise));
       // Enforce monotonicity: each CGM must be >= previous CGM
       if (i > 0 && noisyVal <= circs[i - 1]) {
@@ -873,6 +1020,22 @@ function showMetrics(fit, mP, fP, p) {
   setBias('t-bA-a', fit.A, aA);
   setBias('t-bpgr-a', rPGR, aPGR);
   setBias('t-bt95-a', rT95, aT95);
+  
+  // Hatchling size (circumference at age 0)
+  const trueC0 = p.c0;
+  const mC0 = logistic(0, p.mA, mP.k, mP.t0);
+  const fC0 = logistic(0, p.fA, fP.k, fP.t0);
+  const aC0 = (mC0 + fC0) / 2;
+  const recoveredC0 = logistic(0, fit.A, fit.k, fit.t0);
+  
+  document.getElementById('t-mc0').textContent = mC0.toFixed(1);
+  document.getElementById('t-fc0').textContent = fC0.toFixed(1);
+  document.getElementById('t-ac0').textContent = aC0.toFixed(1);
+  document.getElementById('t-rc0').textContent = recoveredC0.toFixed(1);
+  
+  setBias('t-bc0-m', recoveredC0, mC0);
+  setBias('t-bc0-f', recoveredC0, fC0);
+  setBias('t-bc0-a', recoveredC0, aC0);
 
   // Interpretation
   const sizePct  = (Math.abs(p.mA - p.fA) / Math.min(p.mA, p.fA) * 100).toFixed(0);
@@ -940,14 +1103,14 @@ function runSim() {
 
 function _run() {
   const g = id => parseFloat(document.getElementById(id).value);
-  const p = {mA:g('mA'), mt:g('mt'), mn:g('mn'), mmdf:g('mmdf')/100,
-             fA:g('fA'), ft:g('ft'), fn:g('fn'), fmdf:g('fmdf')/100,
+  const p = {mA:g('mA'), mt:g('mt'), mn:g('mn'), mmdf:g('mmdf')/100, mgsv:g('mgsv'),
+             fA:g('fA'), ft:g('ft'), fn:g('fn'), fmdf:g('fmdf')/100, fgsv:g('fgsv'),
              c0:g('c0'), ns:g('ns'), cg:g('cg'), sd:g('sd')};
   const rand = mkRand(p.sd);
   const mP = solveParams(p.mA, p.c0, p.mt);
   const fP = solveParams(p.fA, p.c0, p.ft);
-  const mSpecs = genSpecimens(rand, p.mA, mP.k, mP.t0, p.mn, p.ns, p.cg, Math.min(35, Math.round(p.mt * 1.2)), p.mmdf);
-  const fSpecs = genSpecimens(rand, p.fA, fP.k, fP.t0, p.fn, p.ns, p.cg, Math.min(35, Math.round(p.ft * 1.2)), p.fmdf);
+  const mSpecs = genSpecimens(rand, p.mA, mP.k, mP.t0, p.mn, p.ns, p.cg, Math.min(35, Math.round(p.mt * 1.2)), p.mmdf, p.mgsv);
+  const fSpecs = genSpecimens(rand, p.fA, fP.k, fP.t0, p.fn, p.ns, p.cg, Math.min(35, Math.round(p.ft * 1.2)), p.fmdf, p.fgsv);
   const all = [...mSpecs, ...fSpecs];
   const fit = jointFit(all);
   drawRaw(mSpecs, fSpecs);
@@ -960,8 +1123,8 @@ function _run() {
 }
 
 // ── Slider wiring ─────────────────────────────────────────────────────────────
-[['mA','v-mA'],['mt','v-mt'],['mn','v-mn'],['mmdf','v-mmdf'],
- ['fA','v-fA'],['ft','v-ft'],['fn','v-fn'],['fmdf','v-fmdf'],
+[['mA','v-mA'],['mt','v-mt'],['mn','v-mn'],['mmdf','v-mmdf'],['mgsv','v-mgsv'],
+ ['fA','v-fA'],['ft','v-ft'],['fn','v-fn'],['fmdf','v-fmdf'],['fgsv','v-fgsv'],
  ['c0','v-c0'],['ns','v-ns'],['cg','v-cg'],['sd','v-sd']].forEach(([sid, vid]) => {
   const s = document.getElementById(sid), d = document.getElementById(vid);
   s.addEventListener('input', () => d.textContent = s.value);
